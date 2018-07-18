@@ -1,0 +1,190 @@
+Option Compare Database
+
+
+
+Function Export_to_Excel()
+
+
+
+    
+    Dim rsData As ADODB.Recordset
+    Dim cnn As ADODB.Connection
+    Dim cmd As ADODB.Command
+    Dim adoField As ADODB.Field
+    Dim xlExcel As Excel.Application
+    Dim xlBook As Excel.Workbook
+    Dim xlSheet As Excel.Worksheet
+    Dim i, intColumns, intRunning_Row_Count, X As Integer
+    Dim arrQueries()
+    Dim prm As ADODB.Parameter
+    
+    Set cnn = New ADODB.Connection
+    Set cmd = New ADODB.Command
+    
+    cnn.ConnectionString = "Provider=Microsoft.ACE.OLEDB.12.0;Data Source=" & CurrentProject.FullName & ";"
+    cnn.CursorLocation = adUseClient
+    cnn.Open
+    
+    'Grouping 1
+    Dim mydate As String
+    
+    mydate = Trim(VBA.Format(Now(), "MM-DD-YY"))
+    
+    
+    ReDim arrQueries(5)
+    
+    arrQueries(0) = "Plant SaleDoc Count"
+    arrQueries(1) = "Plant Material Count"
+    arrQueries(2) = "Material Group Sales"
+    arrQueries(3) = "Material Group Avg"
+    arrQueries(4) = "Report Material Cal GID"
+    arrQueries(5) = "A LineFill Report"
+
+    
+    
+
+    Set xlExcel = CreateObject("Excel.Application")
+    Set xlBook = xlExcel.Workbooks.Add
+    
+    xlExcel.Visible = True
+    
+    intRunning_Row_Count = 2
+    X = 1
+    
+    For i = 0 To UBound(arrQueries)
+        
+        With cmd
+        .ActiveConnection = cnn
+        .Properties("Jet OLEDB:Stored Query") = True
+        .CommandText = "" & arrQueries(i) & ""
+        
+        For Each prm In .Parameters
+        prm = Eval(prm.Name)
+        Next prm
+        
+        Set rsData = .Execute
+        
+        End With
+        
+       
+        'Worksheets.Add().Name = "" & Replace(Mid(arrQueries(i), 20, 31), "_", " ") & ""
+        'Set xlSheet = xlBook.Worksheets("" & Replace(Mid(arrQueries(i), 20, 31), "_", " ") & "")
+        
+        xlBook.Worksheets.Add().Name = CStr(arrQueries(i))
+        
+        Set xlSheet = xlBook.Worksheets(CStr(arrQueries(i)))
+
+        'Set xlSheet = xlBook.Worksheets("Sheet" & i + 1 & "")
+        
+        xlSheet.Activate
+
+        'Iterate through all of the columns in the recordset to get the names and write to the spreadsheet
+        For Each adoField In rsData.Fields
+        'Write the value of the heading into each cell
+        xlSheet.Cells(2, X) = adoField.Name
+        X = X + 1
+        Next adoField
+        
+        'Set the heading row to bold and center
+        xlSheet.Rows("2:2").Font.Bold = True
+        xlSheet.Rows("2:2").HorizontalAlignment = xlCenter
+        
+        'Color the heading light blue
+        'xlSheet.Range("A2:" & Chr(rsData.Fields.Count - 1 + 65) & "2").Interior.ThemeColor = xlThemeColorAccent1
+        'xlSheet.Range("A2:" & Chr(rsData.Fields.Count - 1 + 65) & "2").Interior.TintAndShade = 0.799981688894314
+        
+        'Reset back to 1 for next cycle through For loop
+        X = 1
+        
+        'Copy the data from the recordset and paste into Column A and whichever row we're down to
+        xlSheet.Range("A3").CopyFromRecordset rsData
+
+        xlSheet.Rows("2:2").Select
+        xlExcel.Selection.AutoFilter
+
+        xlSheet.Rows("3:3").Select
+        xlExcel.ActiveWindow.FreezePanes = True
+
+        'Select the first row
+        xlSheet.Rows("2:2").Select
+        'Select all Cells
+        xlSheet.Cells.Select
+        'Perform the AutoFit
+        xlSheet.Cells.EntireColumn.AutoFit
+        'Choose Cell A2
+        xlSheet.Range("A2").Select
+        
+        xlSheet.Range("A1").Select
+        xlExcel.Selection.Font.Color = -16776961
+            
+        xlSheet.Range("A1").Value = "This process was designed around Master Data team specifications, please carefully check the data for completeness and accuracy."
+        xlSheet.Rows("1:1").Font.Bold = True
+        xlSheet.Rows("1:1").Font.Underline = True
+        
+        
+    xlSheet.Cells.Select
+    With Selection.Font
+        .Name = "Comic Sans MS"
+        .Size = 10
+        .Strikethrough = False
+        .Superscript = False
+        .Subscript = False
+        .OutlineFont = False
+        .Shadow = False
+        .TintAndShade = 0
+        .ThemeFont = xlThemeFontNone
+    End With
+        
+        
+        
+        
+        xlExcel.DisplayAlerts = False
+
+    'xlExcel.Sheets("Sheet" & i + 1 & "").Name = Replace(Mid(arrQueries(i), 20, 31), "_", " ")
+
+    Next
+    
+    xlExcel.Sheets("Sheet1").Delete
+    xlExcel.Sheets("Sheet2").Delete
+    xlExcel.Sheets("Sheet3").Delete
+    
+    'If Not IsNull(Forms!frmDashboard!txtACR_Number) And Forms!frmDashboard!txtACR_Number <> "" Then
+    'xlBook.SaveAs "C:\Users\" & Environ("Username") & "\Desktop\LineFill-" & mydate & "\Summary-Report" & mydate & ".xlsx", xlOpenXMLWorkbook, , , , , False, , xlLocalSessionChanges
+    
+    xlBook.SaveAs "C:\Users\10113599\Desktop\LineFill-Summary-Report-" & mydate & ".xlsx", xlOpenXMLWorkbook, , , , , False, , xlLocalSessionChanges
+    'Else        '"C:\Users\10113599\Desktop\LineFill-06-20-2018
+    
+    'xlBook.SaveAs "C:\Users\" & Environ("Username") & "\Desktop\Affected Objects Report Files\" & Forms!frmDashboard!cmbReport_Selection & " Sites With " & Forms!frmDashboard!cmbScope_Selection.Value & " Affected.xlsx", xlOpenXMLWorkbook, , , , , False, , xlLocalSessionChanges
+    'End If
+    
+    xlExcel.Application.DisplayAlerts = True
+    
+    xlBook.Close
+    
+    xlExcel.Application.Quit
+    xlExcel.Quit
+    Excel.Application.Quit
+    
+    Set xlExcel = Nothing
+    Set xlBook = Nothing
+    Set xlSheet = Nothing
+    
+    rsData.Close
+    cnn.Close
+
+
+
+Exit Function 'Stops program from going into error handler as a false positive
+ErrorHandler:
+    If Err.Number = "1004" Then
+    MsgBox "It appears that you have a copy of this report already open." & vbCrLf & _
+    "The program cannot save the output as a result." & vbCrLf & _
+    "Please close the report and hit OK to try again."
+    Resume
+    Else
+    MsgBox Err.Number & " " & Err.Description
+    
+    End If
+
+End Function
+
